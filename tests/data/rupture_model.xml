@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='utf-8'?>
+<nrml xmlns="http://openquake.org/xmlns/nrml/0.5" xmlns:gml="http://www.opengis.net/gml">
+  <multiPlanesRupture>
+    <magnitude>7.1</magnitude>
+    <rake>90.0</rake>
+    <hypocenter lon="29.6" lat="40.15" depth="9.0"/>
+    <kiteSurface>
+      <profile>
+        <gml:LineString>
+          <gml:posList>29.0 40.0 0.0 29.031746 39.926015 15.0</gml:posList>
+        </gml:LineString>
+      </profile>
+      <profile>
+        <gml:LineString>
+          <gml:posList>29.4 40.1 0.0 29.431793 40.026015 15.0</gml:posList>
+        </gml:LineString>
+      </profile>
+    </kiteSurface>
+    <kiteSurface>
+      <profile>
+        <gml:LineString>
+          <gml:posList>29.422799 40.095682 2.0 29.445175 40.061137 18.0</gml:posList>
+        </gml:LineString>
+      </profile>
+      <profile>
+        <gml:LineString>
+          <gml:posList>29.702802 40.175682 2.0 29.725205 40.141137 18.0</gml:posList>
+        </gml:LineString>
+      </profile>
+      <profile>
+        <gml:LineString>
+          <gml:posList>29.952807 40.295682 2.0 29.975249 40.261137 18.0</gml:posList>
+        </gml:LineString>
+      </profile>
+    </kiteSurface>
+    <kiteSurface>
+      <profile>
+        <gml:LineString>
+          <gml:posList>29.97232 40.291183 1.0 29.997797 40.194188 12.0</gml:posList>
+        </gml:LineString>
+      </profile>
+      <profile>
+        <gml:LineString>
+          <gml:posList>30.302321 40.341183 1.0 30.327818 40.244188 12.0</gml:posList>
+        </gml:LineString>
+      </profile>
+    </kiteSurface>
+  </multiPlanesRupture>
+</nrml>
