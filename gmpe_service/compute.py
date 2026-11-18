@@ -26,8 +26,9 @@ from openquake.hazardlib.site import SiteCollection
 
 # GeoHazard ucuyla aynı sınırlar (servis tek başına daha geniş iş kabul etmez; hesap süresi ağ
 # aralığının karesiyle artar: 1020 km kırılma, ağ 1 km, 200 saha, 5 GSIM, 30 IMT ≈ 19 s).
-# Harita ızgarası için saha sınırı 2500; toplam iş saha × GSIM × IMT ≤ MAX_WORK
-# (690 km kırılma, ağ 1 km, 2500 saha × 3 GSIM × 3 IMT ≈ 1,4 s).
+# Harita ızgarası için saha sınırı 2500; toplam iş saha × GSIM × IMT ≤ MAX_WORK. Ölçüm (2026-11-18
+# yerel, doğrudan scenario()): ESHM20 DZCF00F+DZCF002 (1250 km, ~35000 km²), ağ 1 km:
+# 2500 saha × 3 GSIM × 4 IMT ≈ 2,1 s; 200 × 5 × 21 ≈ 1,3 s.
 _LOG = logging.getLogger("gmpe_service")
 
 MAX_SITES = 2500
