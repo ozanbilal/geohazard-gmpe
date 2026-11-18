@@ -3,7 +3,8 @@
 # requirements-py311-linux64.txt); motor sürümü GeoHazard'ın GSIM kataloğuyla (3.23.2) aynı tutulur.
 FROM python:3.11.6-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1 OQ_DISTRIBUTE=no
-RUN useradd -m -u 1000 -s /bin/bash gmpe
+# Taban imajın sistem paketleri (libexpat dahil) derleme anında güncellenir.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \n && useradd -m -u 1000 -s /bin/bash gmpe
 WORKDIR /app
 COPY requirements-oq-linux64.txt requirements-service.txt ./
 RUN pip install --no-cache-dir -r requirements-oq-linux64.txt \

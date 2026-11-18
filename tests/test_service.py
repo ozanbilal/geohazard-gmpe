@@ -57,6 +57,8 @@ def test_values_equal_engine_gsim_on_same_context():
     (["NoSuchModel"], ["PGA"], "unknown_gsim"),
     (["BooreEtAl2014"], ["XYZ"], "unknown_imt"),
     (["ChiouYoungs2014"], ["PGA"], "missing_site_param"),
+    (["BooreEtAl2014", "BindiEtAl2014Rjb"], ["PGA", "SA(3.5)"], "imt_not_supported"),  # Bindi14 en çok 3 s
+    (["KaleEtAl2015Turkey"], ["PGD"], "imt_not_supported"),
 ])
 def test_input_errors(gsims, imts, code):
     with pytest.raises(compute.ComputeError) as err:
@@ -85,6 +87,19 @@ def test_http_requires_key(monkeypatch):
     assert ok.status_code == 200 and ok.json()["results"]["BooreEtAl2014"]["PGA"]["mean_ln"][0] < 0
     bad = client.post("/v1/scenario", json=_body(gsims=["Nope"]), headers={"X-Service-Key": "k" * 32})
     assert bad.status_code == 422 and bad.json()["error"]["code"] == "unknown_gsim"
+
+
+def test_guard_rejects_before_reading_body(monkeypatch):
+    monkeypatch.setenv("GMPE_SERVICE_KEY", "k" * 32)
+    client = TestClient(app)
+    big = b"x" * 3_000_001
+    headers = {"Content-Type": "application/json"}
+    assert client.post("/v1/scenario", content=big, headers=headers).status_code == 401  # anahtarsız: gövde okunmaz
+    assert client.post("/v1/scenario", content=big, headers={**headers, "X-Service-Key": "k" * 32}).status_code == 413
+    fine = client.post("/v1/scenario", json=_body(rupture_mesh_spacing=0.5), headers={"X-Service-Key": "k" * 32})
+    assert fine.status_code == 422  # ağ < 1 km reddedilir (GeoHazard ile aynı sınır)
+    long_name = client.post("/v1/scenario", json=_body(gsims=["A" * 101]), headers={"X-Service-Key": "k" * 32})
+    assert long_name.status_code == 422
 
 
 def test_http_without_configured_key_is_unavailable(monkeypatch):

@@ -12,6 +12,7 @@ isterse ve istekte yoksa hata döner (sessiz varsayılan yok).
 from __future__ import annotations
 
 import io
+import logging
 import math
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
@@ -23,9 +24,14 @@ from openquake.hazardlib.calc.filters import get_distances
 from openquake.hazardlib.contexts import MAXMAG, MINMAG, ContextMaker
 from openquake.hazardlib.site import SiteCollection
 
-MAX_SITES = 2000
-MAX_GSIMS = 10
-MAX_IMTS = 40
+# GeoHazard ucuyla aynı sınırlar (servis tek başına daha geniş iş kabul etmez; hesap süresi ağ
+# aralığının karesiyle artar: 1020 km kırılma, ağ 1 km, 200 saha, 5 GSIM, 30 IMT ≈ 19 s).
+_LOG = logging.getLogger("gmpe_service")
+
+MAX_SITES = 200
+MAX_GSIMS = 5
+MAX_IMTS = 30
+MIN_MESH_KM, MAX_MESH_KM = 1.0, 20.0
 SITE_FIELDS = ("vs30", "vs30measured", "z1pt0", "z2pt5")
 DISTANCES = ("rrup", "rjb", "rx", "ry0")
 
@@ -55,8 +61,8 @@ def parse_gsims(names: Sequence[str]) -> List[object]:
     for name in names:
         try:
             out.append(valid.gsim(name))
-        except Exception as exc:  # motor ad/argüman hatasını çeşitli tiplerle bildirir
-            raise ComputeError("unknown_gsim", f"GSIM tanınmadı: {name} ({exc})") from None
+        except Exception:  # motor ad/argüman hatasını çeşitli tiplerle bildirir
+            raise ComputeError("unknown_gsim", f"GSIM tanınmadı: {name[:100]}") from None
     return out
 
 
@@ -68,18 +74,36 @@ def parse_imts(names: Sequence[str]) -> List[object]:
         try:
             out.append(imt_module.from_string(name))
         except Exception:
-            raise ComputeError("unknown_imt", f"IMT tanınmadı: {name}") from None
+            raise ComputeError("unknown_imt", f"IMT tanınmadı: {name[:40]}") from None
     return out
 
 
+def check_support(gsim_names: Sequence[str], gsims: Sequence[object], imts: Sequence[object]) -> None:
+    """GSIM'in tanımlamadığı IMT türü ya da katsayı tablosu dışındaki periyot motorda KeyError atar;
+    hesaptan önce girdi hatası olarak reddedilir (aralık içi periyotları motor kendisi enterpole eder)."""
+    for name, gsim in zip(gsim_names, gsims):
+        defined = {getattr(kind, "__name__", str(kind)) for kind in gsim.DEFINED_FOR_INTENSITY_MEASURE_TYPES}
+        coeffs = getattr(gsim, "COEFFS", None)
+        for imt in imts:
+            supported = imt.string.split("(")[0] in defined
+            if supported and coeffs is not None:
+                try:
+                    coeffs[imt]
+                except KeyError:
+                    supported = False
+            if not supported:
+                raise ComputeError("imt_not_supported", f"{name}, {imt.string} için tanımlı değil.")
+
+
 def read_rupture(xml: bytes, mesh_spacing: float):
-    if not (0.1 <= mesh_spacing <= 20.0):
-        raise ComputeError("mesh_spacing_range", "rupture_mesh_spacing 0.1-20 km olmalı.")
+    if not (MIN_MESH_KM <= mesh_spacing <= MAX_MESH_KM):
+        raise ComputeError("mesh_spacing_range", f"rupture_mesh_spacing {MIN_MESH_KM:g}-{MAX_MESH_KM:g} km olmalı.")
     try:
         [node] = nrml.read(io.BytesIO(xml))
         rup = sourceconverter.RuptureConverter(mesh_spacing).convert_node(node)
-    except Exception as exc:
-        raise ComputeError("rupture_invalid", f"Kırılma XML'i okunamadı: {exc}") from None
+    except Exception as exc:  # ayrıntı loga; yanıta sabit metin
+        _LOG.info("kırılma okunamadı: %s", type(exc).__name__)
+        raise ComputeError("rupture_invalid", "Kırılma XML'i okunamadı.") from None
     rup.tectonic_region_type = "*"
     return rup
 
@@ -108,6 +132,7 @@ def scenario(xml: bytes, sites: Sequence[Site], gsim_names: Sequence[str], imt_n
     """Her GSIM × IMT × saha için ln-ortalama ve σ'lar; menzil dışındaki sahalar ``None``."""
     gsims = parse_gsims(gsim_names)
     imts = parse_imts(imt_names)
+    check_support(gsim_names, gsims, imts)
     rup = read_rupture(xml, mesh_spacing)
     # Motorun _interp yolu: {"default": [(MINMAG, d), (MAXMAG, d)]} → büyüklükten bağımsız menzil.
     magdist = {"default": [(MINMAG, maximum_distance), (MAXMAG, maximum_distance)]}
@@ -128,7 +153,11 @@ def scenario(xml: bytes, sites: Sequence[Site], gsim_names: Sequence[str], imt_n
             values = get_distances(rup, sitecol, d)
             for sid in sids:
                 out_dist[d][sid] = float(values[sid])
-        arr = cmaker.get_mean_stds(ctxs, split_by_mag=False)  # (4, G, M, N)
+        try:
+            arr = cmaker.get_mean_stds(ctxs, split_by_mag=False)  # (4, G, M, N)
+        except KeyError as exc:  # check_support'un yakalamadığı ek katsayı tablosu
+            _LOG.info("get_mean_stds KeyError: %s", exc)
+            raise ComputeError("imt_not_supported", "Seçili GSIM'lerden biri bu IMT için tanımlı değil.") from None
         for g, gname in enumerate(gsim_names):
             for m, imt in enumerate(imts):
                 block = results[gname][imt.string]
