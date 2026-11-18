@@ -120,3 +120,16 @@ def test_health_and_source():
     client = TestClient(app)
     assert client.get("/health").json()["engine"].startswith("3.23")
     assert client.get("/source").json()["license"].startswith("AGPL")
+
+
+def test_vertical_fault_rjb_from_planar_rupture():
+    """GeoHazard dikey fayı iz parçası başına planarSurface yazar (motorun dikey kite Rjb hatası:
+    sınır yalnız uç profillerden, 40 km ötesi köşe uzaklığı). Fixture GeoHazard çekirdeğinin çıktısı
+    (``tests/data/nrml/multifault_vertical/out/scenario/rupture_model.xml``)."""
+    xml = (Path(__file__).parent / "data" / "rupture_vertical_planar.xml").read_bytes()
+    sites = [compute.Site(28.6, 40.8, 760.0, False), compute.Site(28.25, 40.775, 760.0, False),
+             compute.Site(28.65, 40.593, 760.0, False)]
+    d = compute.scenario(xml, sites, ["BooreEtAl2014"], ["PGA"])["distances"]
+    assert d["rjb"][0] < 0.5 and d["rjb"][1] < 0.5  # iz üstü: kırık köşesi ve parça ortası
+    assert all(rjb <= rrup + 0.05 for rjb, rrup in zip(d["rjb"], d["rrup"]))
+    assert 21.0 < d["rjb"][2] < 24.0  # SimpleFaultSurface: 22,3 km (kite ile 63,7 km çıkıyordu)
