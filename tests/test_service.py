@@ -9,7 +9,7 @@ from openquake.hazardlib import valid
 from openquake.hazardlib.contexts import get_mean_stds
 
 from gmpe_service import compute
-from gmpe_service.app import app
+from gmpe_service.app import MAX_BODY_BYTES, app
 
 RUPTURE = (Path(__file__).parent / "data" / "rupture_model.xml").read_bytes()
 GSIMS = ["AkkarEtAlRjb2014", "BooreEtAl2014", "KaleEtAl2015Turkey"]
@@ -66,6 +66,15 @@ def test_input_errors(gsims, imts, code):
     assert err.value.code == code
 
 
+def test_work_budget():
+    grid = [compute.Site(29.0 + 0.01 * i, 40.0, 760.0, False) for i in range(compute.MAX_SITES)]
+    with pytest.raises(compute.ComputeError) as err:
+        compute.scenario(RUPTURE, grid, GSIMS, ["PGA", "SA(0.2)", "SA(0.5)", "SA(1.0)", "SA(2.0)"])
+    assert err.value.code == "request_too_large"
+    out = compute.scenario(RUPTURE, grid, GSIMS[:1], IMTS)  # 2500 × 1 × 3: bütçe içinde
+    assert len(out["distances"]["rjb"]) == compute.MAX_SITES
+
+
 def test_bad_rupture():
     with pytest.raises(compute.ComputeError) as err:
         compute.scenario(b"<nrml/>", SITES, GSIMS, IMTS)
@@ -92,7 +101,7 @@ def test_http_requires_key(monkeypatch):
 def test_guard_rejects_before_reading_body(monkeypatch):
     monkeypatch.setenv("GMPE_SERVICE_KEY", "k" * 32)
     client = TestClient(app)
-    big = b"x" * 3_000_001
+    big = b"x" * (MAX_BODY_BYTES + 1)
     headers = {"Content-Type": "application/json"}
     assert client.post("/v1/scenario", content=big, headers=headers).status_code == 401  # anahtarsız: gövde okunmaz
     assert client.post("/v1/scenario", content=big, headers={**headers, "X-Service-Key": "k" * 32}).status_code == 413

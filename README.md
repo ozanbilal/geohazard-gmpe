@@ -16,9 +16,10 @@ GSIM × IMT × saha için ln-ortalama ile σ, τ, φ döndürür. Rastgele yer h
 - `GET /source` — lisans ve bu kaynak kodunun adresi (`GMPE_SOURCE_URL`)
 
 Her `/v1/scenario` isteği `X-Service-Key` başlığı taşır; `GMPE_SERVICE_KEY` ortam değişkeniyle sabit
-zamanlı karşılaştırılır; denetim gövde okunmadan önce yapılır (gövde en çok 3 MB, `Content-Length`
-zorunlu). Anahtar tanımlı değilse uç 503 döner. Sınırlar GeoHazard ile aynıdır: en çok 200 saha,
-5 GSIM, 30 IMT; kırılma ağ aralığı 1–20 km.
+zamanlı karşılaştırılır; denetim gövde okunmadan önce yapılır (gövde en çok 3,5 MB, `Content-Length`
+zorunlu). Anahtar tanımlı değilse uç 503 döner. Sınırlar GeoHazard ile aynıdır: en çok 2500 saha,
+5 GSIM, 30 IMT ve saha × GSIM × IMT ≤ 30000 (aşımı 422 `request_too_large`); kırılma ağ aralığı
+1–20 km.
 
 ## Ortam değişkenleri
 

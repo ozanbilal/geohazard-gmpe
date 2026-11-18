@@ -26,11 +26,14 @@ from openquake.hazardlib.site import SiteCollection
 
 # GeoHazard ucuyla aynı sınırlar (servis tek başına daha geniş iş kabul etmez; hesap süresi ağ
 # aralığının karesiyle artar: 1020 km kırılma, ağ 1 km, 200 saha, 5 GSIM, 30 IMT ≈ 19 s).
+# Harita ızgarası için saha sınırı 2500; toplam iş saha × GSIM × IMT ≤ MAX_WORK
+# (690 km kırılma, ağ 1 km, 2500 saha × 3 GSIM × 3 IMT ≈ 1,4 s).
 _LOG = logging.getLogger("gmpe_service")
 
-MAX_SITES = 200
+MAX_SITES = 2500
 MAX_GSIMS = 5
 MAX_IMTS = 30
+MAX_WORK = 30_000
 MIN_MESH_KM, MAX_MESH_KM = 1.0, 20.0
 SITE_FIELDS = ("vs30", "vs30measured", "z1pt0", "z2pt5")
 DISTANCES = ("rrup", "rjb", "rx", "ry0")
@@ -133,6 +136,9 @@ def scenario(xml: bytes, sites: Sequence[Site], gsim_names: Sequence[str], imt_n
     gsims = parse_gsims(gsim_names)
     imts = parse_imts(imt_names)
     check_support(gsim_names, gsims, imts)
+    work = len(sites) * len(gsims) * len(imts)
+    if work > MAX_WORK:
+        raise ComputeError("request_too_large", f"saha × GSIM × IMT en çok {MAX_WORK} olmalı ({work}).")
     rup = read_rupture(xml, mesh_spacing)
     # Motorun _interp yolu: {"default": [(MINMAG, d), (MAXMAG, d)]} → büyüklükten bağımsız menzil.
     magdist = {"default": [(MINMAG, maximum_distance), (MAXMAG, maximum_distance)]}

@@ -23,7 +23,7 @@ from gmpe_service import compute
 
 SOURCE_URL = os.environ.get("GMPE_SOURCE_URL", "")
 MAX_RUPTURE_BYTES = 2_000_000
-MAX_BODY_BYTES = 3_000_000  # base64 (~2,7 MB) + saha listesi
+MAX_BODY_BYTES = 3_500_000  # base64 (~2,7 MB) + saha listesi (2500 saha ≈ 250 kB)
 PROTECTED_PREFIX = "/v1/"
 Name = Annotated[str, Field(min_length=1, max_length=100)]
 
